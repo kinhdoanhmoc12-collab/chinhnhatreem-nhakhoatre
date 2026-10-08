@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /api/
+Disallow: /quan-ly/
+Disallow: /tim-kiem
+Disallow: /*?s=
+
+Sitemap: https://chinhnhatreem.com/sitemap.xml

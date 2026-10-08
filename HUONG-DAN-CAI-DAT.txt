@@ -1,0 +1,45 @@
+HƯỚNG DẪN ĐƯA WEBSITE chinhnhatreem.com LÊN VPS
+================================================
+Yêu cầu: VPS chạy Ubuntu 20.04/22.04/24.04 hoặc Debian 11/12, tên miền đã trỏ về IP của VPS.
+
+BƯỚC 1. Tải file lên VPS
+  - Cài WinSCP (Windows) hoặc Termius / FileZilla.
+  - Kết nối: Host = IP VPS, Port = 22, User = root, mật khẩu root.
+  - Kéo file chinhnhatreem-web.zip vào thư mục /root trên VPS.
+
+BƯỚC 2. Chạy lệnh cài đặt
+  - Mở cửa sổ dòng lệnh: trong WinSCP bấm Ctrl+T (Open Terminal), hoặc dùng
+    VNC Console trong Cloudpanel, hoặc Termius.
+  - Dán dòng lệnh sau rồi bấm Enter:
+
+    cd /root && apt-get install -y unzip && unzip -o chinhnhatreem-web.zip && bash chinhnhatreem-web/install.sh
+
+  - Chờ khoảng 2–5 phút. Khi thấy chữ "XONG" là hoàn tất.
+  - Script tự: cài Nginx + PHP, chép web, lấy SSL miễn phí, chuyển hướng
+    http -> https và www -> không www, bật nén, cache, header bảo mật, tường lửa.
+
+BƯỚC 3. Kiểm tra
+  - Mở https://chinhnhatreem.com
+  - Trang xem lịch hẹn và câu hỏi bố mẹ gửi: https://chinhnhatreem.com/quan-ly/
+    Tài khoản: admin. Mật khẩu in ra ở cuối bước 2, và lưu trong file
+    /root/mat-khau-quan-ly.txt trên VPS.
+    Đổi mật khẩu: htpasswd /etc/nginx/.htpasswd-chinhnhatreem admin
+
+CẬP NHẬT WEB LẦN SAU
+  Tải file zip mới lên /root rồi chạy lại đúng dòng lệnh ở Bước 2.
+  Dữ liệu lịch hẹn, câu hỏi và mật khẩu trang quản lý được giữ nguyên.
+
+SAU KHI CÀI XONG NÊN LÀM
+  1. Đổi mật khẩu root trong Cloudpanel (mật khẩu cũ đã gửi qua tin nhắn).
+  2. Khai báo website với Google Search Console, gửi sitemap:
+     https://chinhnhatreem.com/sitemap.xml
+  3. Kiểm tra Schema: https://search.google.com/test/rich-results
+  4. Kiểm tra tốc độ: https://pagespeed.web.dev
+
+CẤU TRÚC THƯ MỤC
+  public/               toàn bộ website (HTML, ảnh, robots.txt, sitemap.xml, llms.txt)
+  public/api/           xử lý form đặt lịch và gửi câu hỏi (PHP)
+  public/quan-ly/       trang xem dữ liệu, có mật khẩu
+  install.sh            script cài đặt / cập nhật
+  nginx-site.conf       cấu hình Nginx
+  Dữ liệu form lưu tại /var/www/chinhnhatreem-data/ (ngoài thư mục web).
