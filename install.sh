@@ -21,6 +21,8 @@ command -v apt-get >/dev/null || { echo "Script này dành cho Ubuntu/Debian. H�
 
 xanh "1/7 Cài phần mềm (Nginx, PHP, Certbot)"
 export DEBIAN_FRONTEND=noninteractive
+mkdir -p /etc/nginx/conf.d
+echo "server_names_hash_bucket_size 128;" > /etc/nginx/conf.d/server_names_hash.conf
 apt-get update -y
 apt-get install -y nginx php-fpm php-mbstring certbot apache2-utils ufw curl dnsutils rsync
 systemctl disable --now apache2 >/dev/null 2>&1 || true   # tránh tranh cổng 80 với Nginx
