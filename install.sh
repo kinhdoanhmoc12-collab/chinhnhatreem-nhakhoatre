@@ -27,8 +27,9 @@ systemctl disable --now apache2 >/dev/null 2>&1 || true   # tránh tranh cổng 
 PHPSOCK="$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1 || true)"
 if [ -z "$PHPSOCK" ]; then
   systemctl restart "$(systemctl list-unit-files | awk '/php.*-fpm.service/{print $1; exit}')" || true
-  sleep 2; PHPSOCK="$(ls /run/php/php*-fpm.sock | head -1)"
+  sleep 2; PHPSOCK="$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1 || true)"
 fi
+[ -n "$PHPSOCK" ] || { echo "Không tìm thấy socket PHP-FPM. Kiểm tra service php-fpm."; exit 1; }
 echo "PHP-FPM: $PHPSOCK"
 
 xanh "2/7 Chép website vào $WEBROOT"
@@ -39,7 +40,7 @@ chown www-data:www-data "$DATA"; chmod 750 "$DATA"
 
 xanh "3/7 Mật khẩu trang quản lý lịch hẹn (/quan-ly)"
 if [ ! -f "$HTPASS" ]; then
-  PASS="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 14)"
+  PASS="$(head -c 64 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 14)"
   htpasswd -bc "$HTPASS" admin "$PASS" >/dev/null
   chown root:www-data "$HTPASS"; chmod 640 "$HTPASS"
   echo "$PASS" > /root/mat-khau-quan-ly.txt; chmod 600 /root/mat-khau-quan-ly.txt
