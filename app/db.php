@@ -74,7 +74,8 @@ function db(): PDO {
         contact_note TEXT NOT NULL DEFAULT '',
         contacted_at TEXT,
         contacted_by INTEGER REFERENCES users(id),
-        raw_hash TEXT UNIQUE
+        raw_hash TEXT UNIQUE,
+        deleted_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_leads_source_created ON leads(source_type, created_at);
     CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
@@ -84,6 +85,8 @@ function db(): PDO {
     if (!in_array('reviewed_at', $cols, true)) $pdo->exec("ALTER TABLE articles ADD COLUMN reviewed_at TEXT");
     if (!in_array('review_checks', $cols, true)) $pdo->exec("ALTER TABLE articles ADD COLUMN review_checks TEXT NOT NULL DEFAULT ''");
     if (!in_array('deleted_at', $cols, true)) $pdo->exec("ALTER TABLE articles ADD COLUMN deleted_at TEXT");
+    $leadCols = array_column($pdo->query('PRAGMA table_info(leads)')->fetchAll(), 'name');
+    if (!in_array('deleted_at', $leadCols, true)) $pdo->exec("ALTER TABLE leads ADD COLUMN deleted_at TEXT");
     // Đường dẫn bài đã từng đăng rồi bị xóa: chuyển hướng 301 về trang Kiến thức để giữ SEO
     $pdo->exec("CREATE TABLE IF NOT EXISTS gone_slugs (slug TEXT PRIMARY KEY, at TEXT NOT NULL)");
     return $pdo;

@@ -54,11 +54,11 @@ function layout(string $title, string $body): void {
     }
     $who = $u ? '<span class="who">' . e($u['display_name']) . ' · ' . e(ROLES[$u['role']]) . '</span>' : '';
     echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
-        . '<title>' . e($title) . ' · Quản trị Nha Khoa Trẻ</title><link rel="icon" href="/images/logo-nha-khoa-tre.png"><link rel="stylesheet" href="admin.css?v=11"></head><body>'
+        . '<title>' . e($title) . ' · Quản trị Nha Khoa Trẻ</title><link rel="icon" href="/images/logo-nha-khoa-tre.png"><link rel="stylesheet" href="admin.css?v=12"></head><body>'
         . '<header class="top"><a href="?p=home" class="brand"><img src="/images/logo-nha-khoa-tre.webp" alt="" height="36"> Quản trị</a>' . $who . '<a href="/" target="_blank" class="site">Xem website ↗</a></header>'
         . ($u ? '<nav class="side">' . $nav . '</nav>' : '')
         . '<main class="' . ($u ? 'with-side' : 'solo') . '">' . ($flash ? '<div class="flash">' . e($flash) . '</div>' : '') . '<h1>' . e($title) . '</h1>' . $body . '</main>'
-        . '<script src="admin.js?v=9"></script></body></html>';
+        . '<script src="admin.js?v=10"></script></body></html>';
 }
 
 // ---------- Đăng nhập ----------
@@ -527,6 +527,33 @@ if ($p === 'leads') {
             }
             go('leads' . ($backQuery ? "&$backQuery" : ''), 'Đã lưu ghi chú liên hệ.');
         }
+
+        if ($act === 'delete') {
+            $lead = db()->query('SELECT * FROM leads WHERE id = ' . $leadId)->fetch();
+            if ($lead) {
+                db()->prepare('UPDATE leads SET deleted_at = ? WHERE id = ?')->execute([now(), $leadId]);
+                log_activity((int)$u['id'], "Xóa lead #$leadId (" . ($lead['name'] ?: $lead['phone']) . ')');
+            }
+            if ($isAjax) {
+                json_out(['ok' => true, 'id' => $leadId]);
+            }
+            go('leads' . ($backQuery ? "&$backQuery" : ''), 'Đã xóa mục.');
+        }
+
+        if ($act === 'bulk_delete') {
+            $rawIds = $_POST['ids'] ?? '';
+            $ids = is_array($rawIds) ? $rawIds : explode(',', (string)$rawIds);
+            $ids = array_filter(array_map('intval', $ids));
+            if ($ids) {
+                $in = implode(',', $ids);
+                db()->prepare("UPDATE leads SET deleted_at = ? WHERE id IN ($in)")->execute([now()]);
+                log_activity((int)$u['id'], 'Xóa ' . count($ids) . ' mục lead');
+            }
+            if ($isAjax) {
+                json_out(['ok' => true, 'count' => count($ids)]);
+            }
+            go('leads' . ($backQuery ? "&$backQuery" : ''), 'Đã xóa ' . count($ids) . ' mục đã chọn.');
+        }
     }
 
     // Bộ lọc
@@ -539,17 +566,17 @@ if ($p === 'leads') {
     $q = trim((string)($_GET['q'] ?? ''));
 
     // Xây dựng câu truy vấn
-    $where = [];
+    $where = ['l.deleted_at IS NULL'];
     $params = [];
-    if ($loai !== 'all') { $where[] = 'source_type = ?'; $params[] = $loai; }
-    if ($stFilter !== '') { $where[] = 'status = ?'; $params[] = $stFilter; }
-    if ($monthFilter !== '') { $where[] = 'created_at LIKE ?'; $params[] = "$monthFilter%"; }
+    if ($loai !== 'all') { $where[] = 'l.source_type = ?'; $params[] = $loai; }
+    if ($stFilter !== '') { $where[] = 'l.status = ?'; $params[] = $stFilter; }
+    if ($monthFilter !== '') { $where[] = 'l.created_at LIKE ?'; $params[] = "$monthFilter%"; }
     if ($q !== '') {
-        $where[] = '(name LIKE ? OR phone LIKE ? OR concerns LIKE ? OR note LIKE ?)';
+        $where[] = '(l.name LIKE ? OR l.phone LIKE ? OR l.concerns LIKE ? OR l.note LIKE ?)';
         $kw = "%$q%";
         $params[] = $kw; $params[] = $kw; $params[] = $kw; $params[] = $kw;
     }
-    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
 
     // Xuất Excel CSV
     if (isset($_GET['tai'])) {
@@ -586,13 +613,13 @@ if ($p === 'leads') {
     }
 
     // Danh sách các tháng có dữ liệu để chọn trong dropdown
-    $monthRows = db()->query("SELECT DISTINCT SUBSTR(created_at, 1, 7) as ym FROM leads ORDER BY ym DESC")->fetchAll(PDO::FETCH_COLUMN);
+    $monthRows = db()->query("SELECT DISTINCT SUBSTR(created_at, 1, 7) as ym FROM leads WHERE deleted_at IS NULL ORDER BY ym DESC")->fetchAll(PDO::FETCH_COLUMN);
 
     // Thống kê nhanh theo loại hiện tại
-    $statWhere = [];
+    $statWhere = ['deleted_at IS NULL'];
     if ($loai !== 'all') $statWhere[] = "source_type = " . db()->quote($loai);
     if ($monthFilter !== '') $statWhere[] = "created_at LIKE " . db()->quote("$monthFilter%");
-    $statWhereSql = $statWhere ? 'WHERE ' . implode(' AND ', $statWhere) : '';
+    $statWhereSql = 'WHERE ' . implode(' AND ', $statWhere);
 
     $statsCounts = db()->query("SELECT 
         COUNT(*) as total,
@@ -660,12 +687,24 @@ if ($p === 'leads') {
         . ($stFilter !== '' || $monthFilter !== '' || $q !== '' ? '<a href="?p=leads&xem=' . e($loai) . '" class="btn mini ghost">Xóa lọc</a>' : '')
         . '</form></div>';
 
+    // Thanh thao tác hàng loạt (Bulk Bar)
+    $b .= '<div class="bulk-bar" id="lead-bulk-bar" style="display:none;margin-bottom:12px">'
+        . '<span>Đã chọn <b id="lead-bulk-count">0</b> mục</span>'
+        . '<form method="post" action="?p=leads" id="lead-bulk-form" class="inline" style="margin-left:auto">'
+        . csrf_field()
+        . '<input type="hidden" name="action" value="bulk_delete">'
+        . '<input type="hidden" name="back_query" value="' . e($backQuery) . '">'
+        . '<input type="hidden" name="ids" id="lead-bulk-ids">'
+        . '<button type="submit" class="btn mini danger" data-confirm="Xóa các mục đã chọn khỏi hệ thống?">🗑 Xóa các mục đã chọn</button>'
+        . '</form></div>';
+
     // Bảng dữ liệu
     $b .= '<div class="card"><p><b>' . count($leadsList) . '</b> mục' . ($monthFilter ? ' trong tháng ' . date('n/Y', strtotime("$monthFilter-01")) : '') . ', mới nhất ở trên.</p>';
     if (!$leadsList) {
         $b .= '<p class="hint">Không có dữ liệu phù hợp với bộ lọc.</p>';
     } else {
         $b .= '<div class="wrap"><table class="lead-table"><thead><tr>'
+            . '<th style="width:36px;text-align:center"><input type="checkbox" id="chk-all-leads" title="Chọn tất cả"></th>'
             . '<th>Thời gian</th>'
             . '<th>Phụ huynh</th>'
             . '<th>Số điện thoại / Zalo</th>'
@@ -674,6 +713,7 @@ if ($p === 'leads') {
             . '<th>Ghi chú của khách</th>'
             . '<th>Trạng thái liên hệ</th>'
             . '<th>Xử lý & CSKH</th>'
+            . '<th style="text-align:center;width:75px">Xóa</th>'
             . '</tr></thead><tbody>';
 
         $today = date('Y-m-d');
@@ -714,7 +754,16 @@ if ($p === 'leads') {
                 . ($zaloPhone ? '<a href="https://zalo.me/' . e($zaloPhone) . '" target="_blank" rel="noopener" class="btn-icon btn-zalo" title="Mở Zalo">💬 Zalo</a>' : '')
                 . '</div>';
 
+            $delForm = '<form method="post" action="?p=leads" class="inline del-lead-form" style="margin:0">'
+                . csrf_field()
+                . '<input type="hidden" name="action" value="delete">'
+                . '<input type="hidden" name="id" value="' . $r['id'] . '">'
+                . '<input type="hidden" name="back_query" value="' . e($backQuery) . '">'
+                . '<button type="submit" class="btn mini danger btn-del-lead" data-id="' . $r['id'] . '" data-name="' . e($r['name'] ?: $r['phone']) . '" data-confirm="Xóa yêu cầu của ' . e($r['name'] ?: $r['phone']) . ' (' . e($r['phone']) . ')? Thao tác này sẽ ẩn khỏi hệ thống." style="margin:0;padding:5px 9px;font-size:12px">🗑 Xóa</button>'
+                . '</form>';
+
             $b .= '<tr id="lead-row-' . $r['id'] . '">'
+                . '<td style="text-align:center"><input type="checkbox" name="chk_lead[]" value="' . $r['id'] . '" class="lead-chk"></td>'
                 . '<td class="nowrap">' . e(date('d/m/Y H:i', strtotime($r['created_at']))) . ($isToday ? ' <span class="badge green">Mới</span>' : '') . '</td>'
                 . '<td><b>' . e($r['name'] ?: 'Phụ huynh') . '</b>' . ($r['source_type'] === 'cau-hoi' ? ' <span class="badge gray">Câu hỏi</span>' : '') . '</td>'
                 . '<td class="nowrap">' . $phoneHtml . '</td>'
@@ -723,6 +772,7 @@ if ($p === 'leads') {
                 . '<td>' . (!empty($r['note']) ? '<span class="small">' . e($r['note']) . '</span>' : '–') . '</td>'
                 . '<td><div style="display:flex;flex-direction:column;gap:5px">' . $badgeHtml . $selectHtml . '</div></td>'
                 . '<td><div style="display:flex;flex-direction:column;gap:4px">' . $noteHtml . $actionBtn . '</div></td>'
+                . '<td style="text-align:center">' . $delForm . '</td>'
                 . '</tr>';
         }
         $b .= '</tbody></table></div>';

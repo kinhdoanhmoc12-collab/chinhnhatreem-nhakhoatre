@@ -35,7 +35,7 @@ function get_monthly_lead_stats(int $months = 6): array {
             SUM(CASE WHEN status != 'chua_lien_he' THEN 1 ELSE 0 END) as da_lien_he,
             SUM(CASE WHEN status = 'chua_lien_he' THEN 1 ELSE 0 END) as chua_lien_he,
             SUM(CASE WHEN status = 'da_hen' THEN 1 ELSE 0 END) as da_hen
-            FROM leads WHERE created_at >= ? AND created_at <= ?");
+            FROM leads WHERE created_at >= ? AND created_at <= ? AND deleted_at IS NULL");
         $st->execute([$from, $to]);
         $r = $st->fetch() ?: [];
         $tot = (int)($r['total'] ?? 0);
@@ -121,7 +121,7 @@ function dashboard_html(array $u): string {
     $mDeltaText = ($mDelta >= 0 ? '+' : '') . $mDelta . ' so với tháng trước';
     $uncontactedTotal = 0;
     if (can('leads')) {
-        $uncontactedTotal = (int)db()->query("SELECT COUNT(*) FROM leads WHERE status = 'chua_lien_he'")->fetchColumn();
+        $uncontactedTotal = (int)db()->query("SELECT COUNT(*) FROM leads WHERE status = 'chua_lien_he' AND deleted_at IS NULL")->fetchColumn();
     }
 
     // ---- Ô số liệu ----
@@ -269,7 +269,7 @@ function dashboard_html(array $u): string {
 
     if (can('leads')) {
         $h .= '<section class="card"><h2>Lịch hẹn mới nhất</h2>';
-        $recentLeads = db()->query("SELECT l.*, u.display_name as staff_name FROM leads l LEFT JOIN users u ON u.id = l.contacted_by WHERE l.source_type = 'dat-lich' ORDER BY l.created_at DESC LIMIT 5")->fetchAll();
+        $recentLeads = db()->query("SELECT l.*, u.display_name as staff_name FROM leads l LEFT JOIN users u ON u.id = l.contacted_by WHERE l.source_type = 'dat-lich' AND l.deleted_at IS NULL ORDER BY l.created_at DESC LIMIT 5")->fetchAll();
         if (!$recentLeads) $h .= '<p class="hint">Chưa có lịch hẹn nào.</p>';
         else {
             $h .= '<div class="wrap"><table><tr><th>Lúc</th><th>Phụ huynh</th><th>Điện thoại</th><th>Lo về</th><th>Trạng thái</th></tr>';

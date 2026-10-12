@@ -167,6 +167,75 @@
     });
   }
 
+  // Chọn tất cả / Thao tác xóa hàng loạt leads
+  var chkAll = document.getElementById('chk-all-leads');
+  var bulkBar = document.getElementById('lead-bulk-bar');
+  var bulkCount = document.getElementById('lead-bulk-count');
+  var bulkIds = document.getElementById('lead-bulk-ids');
+
+  function updateBulkBar() {
+    var checked = document.querySelectorAll('.lead-chk:checked');
+    if (!bulkBar) return;
+    if (checked.length > 0) {
+      bulkBar.style.display = 'flex';
+      bulkCount.textContent = checked.length;
+      var ids = [];
+      checked.forEach(function (c) { ids.push(c.value); });
+      bulkIds.value = ids.join(',');
+    } else {
+      bulkBar.style.display = 'none';
+      bulkIds.value = '';
+    }
+  }
+
+  if (chkAll) {
+    chkAll.addEventListener('change', function () {
+      document.querySelectorAll('.lead-chk').forEach(function (c) { c.checked = chkAll.checked; });
+      updateBulkBar();
+    });
+  }
+
+  document.querySelectorAll('.lead-chk').forEach(function (c) {
+    c.addEventListener('change', function () {
+      if (!c.checked && chkAll) chkAll.checked = false;
+      updateBulkBar();
+    });
+  });
+
+  // AJAX Xóa từng dòng lead
+  document.querySelectorAll('.del-lead-form').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      var btn = f.querySelector('.btn-del-lead');
+      var name = btn ? btn.dataset.name : '';
+      if (!confirm('Xóa thông tin của ' + (name || 'khách này') + '? Thao tác này sẽ ẩn khỏi hệ thống.')) {
+        e.preventDefault();
+        return;
+      }
+      e.preventDefault();
+      var id = btn.dataset.id;
+      var fd = new FormData(f);
+      fd.append('ajax', '1');
+      fetch('?p=leads', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.ok) {
+            var row = document.getElementById('lead-row-' + id);
+            if (row) {
+              row.style.transition = 'opacity .3s, transform .3s';
+              row.style.opacity = '0';
+              row.style.transform = 'translateX(20px)';
+              setTimeout(function () { row.remove(); updateBulkBar(); }, 300);
+            }
+          } else {
+            f.submit();
+          }
+        })
+        .catch(function () {
+          f.submit();
+        });
+    });
+  });
+
   var form = document.getElementById('ed') || document.getElementById('pg');
   if (!form) return;
   var rte = document.getElementById('rte'), hidden = document.getElementById('f-content');
