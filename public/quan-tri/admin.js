@@ -290,17 +290,300 @@
             });
           };
           inp.click();
+        } else if (c === 'auto-heading') {
+          var n = autoFormatHeadings(rte);
+          sync(); scoreSoon();
+          showToast('✨ Đã tự động nhận diện và cập nhật ' + n + ' tiêu đề H2, H3!');
         } else document.execCommand(c);
         sync(); scoreSoon();
       });
     });
+
+    // Thông báo nhanh góc màn hình
+    function showToast(msg) {
+      var t = document.getElementById('rte-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'rte-toast';
+        document.body.appendChild(t);
+      }
+      t.innerHTML = msg;
+      t.className = 'show';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(function () { t.className = ''; }, 3500);
+    }
+
+    // Nhận diện cấu trúc tiêu đề (H2, H3) từ văn bản tiếng Việt & Markdown
+    function detectHeading(text, isBold) {
+      text = (text || '').trim();
+      if (!text || text.length > 140) return null;
+
+      // 1. Markdown heading
+      if (/^#{4,6}\s+/.test(text)) return { tag: 'h3', text: text.replace(/^#{4,6}\s+/, '') };
+      if (/^###\s+/.test(text)) return { tag: 'h3', text: text.replace(/^###\s+/, '') };
+      if (/^##\s+/.test(text)) return { tag: 'h2', text: text.replace(/^##\s+/, '') };
+      if (/^#\s+/.test(text)) return { tag: 'h2', text: text.replace(/^#\s+/, '') };
+
+      // 2. Mục số phân cấp: 1.1, 1.2, 2.1.3...
+      if (/^[0-9]+\.[0-9]+(?:\.[0-9]+)?[\.\:\-\s]\s*(.+)$/.test(text)) return { tag: 'h3', text: text };
+
+      // 3. Bước, Giai đoạn, Lưu ý, Phương pháp, Kỹ thuật, Tiêu chuẩn, Dấu hiệu
+      if (/^(?:Bước|Giai đoạn|Lưu ý|Cách|Phương pháp|Kỹ thuật|Tiêu chuẩn|Dấu hiệu)\s+[0-9IVXa-z]+[\.\:\-\s]\s*(.+)$/i.test(text)) return { tag: 'h3', text: text };
+
+      // 4. Mục chữ cái: a), b), c)
+      if (/^[a-zA-Z]\)[\.\:\-\s]?\s*(.+)$/.test(text) && !/[\,\;]$/.test(text)) return { tag: 'h3', text: text };
+
+      // 5. Số La Mã: I., II., III., IV., V., VI., VII., VIII., IX., X.
+      if (/^(?:I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)[\.\:\-\/\s]\s*(.+)$/i.test(text)) return { tag: 'h2', text: text };
+
+      // 6. Phần 1, Chương 1, Mục 1
+      if (/^(?:Phần|Chương|Mục|Bài)\s+(?:[0-9]+|[IVX]+)[\.\:\-\s]\s*(.+)$/i.test(text)) return { tag: 'h2', text: text };
+
+      // 7. Câu hỏi tiêu đề (chuẩn SEO Nha Khoa Trẻ dạng câu hỏi)
+      if (/\?$/.test(text) && text.length <= 110 && !/\.\s/.test(text) && !/^[a-zà-ỹ]/.test(text)) return { tag: 'h2', text: text };
+
+      // 8. Tiêu đề in HOA toàn bộ (ALL CAPS)
+      var words = text.split(/\s+/);
+      if (words.length >= 2 && words.length <= 16 && text.length <= 100 && !/\.$/.test(text)) {
+        if (text === text.toUpperCase() && /[A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ]/.test(text)) {
+          return { tag: 'h2', text: text };
+        }
+      }
+
+      // 9. Mục số lớn: 1. , 2. , 3.
+      if (/^[0-9]+[\.\:\-]\s*(.+)$/.test(text) && text.length <= 110) {
+        var hasColonOrQ = /[\:\?]$/.test(text);
+        var hasDot = /\.$/.test(text);
+        if (isBold || hasColonOrQ || !hasDot) return { tag: 'h2', text: text };
+      }
+
+      // 10. Đoạn văn ngắn in đậm toàn bộ
+      if (isBold && text.length <= 95 && !/\.$/.test(text) && words.length >= 2) {
+        return { tag: 'h2', text: text };
+      }
+
+      return null;
+    }
+
+    // Quét và tự động chuyển các đoạn văn bản đủ điều kiện thành H2 / H3
+    function autoFormatHeadings(root) {
+      var count = 0;
+      // 1. Chuyển H1 thành H2 (H1 đã là tiêu đề bài viết)
+      root.querySelectorAll('h1').forEach(function (el) {
+        var h2 = document.createElement('h2');
+        h2.innerHTML = el.innerHTML;
+        el.replaceWith(h2);
+        count++;
+      });
+      // 2. Chuyển H4, H5, H6 thành H3
+      root.querySelectorAll('h4, h5, h6').forEach(function (el) {
+        var h3 = document.createElement('h3');
+        h3.innerHTML = el.innerHTML;
+        el.replaceWith(h3);
+        count++;
+      });
+      // 3. Quét các thẻ p
+      root.querySelectorAll('p').forEach(function (p) {
+        var raw = p.textContent.trim();
+        if (!raw) return;
+        var isAllBold = false;
+        var b = p.querySelector('b, strong');
+        if (b && b.textContent.trim() === raw) isAllBold = true;
+        var h = detectHeading(raw, isAllBold);
+        if (h) {
+          var el = document.createElement(h.tag);
+          el.textContent = h.text;
+          p.replaceWith(el);
+          count++;
+        }
+      });
+      // 4. Xóa thẻ b/strong thừa nằm bên trong H2, H3
+      root.querySelectorAll('h2 b, h3 b, h2 strong, h3 strong').forEach(function (b) {
+        while (b.firstChild) b.parentNode.insertBefore(b.firstChild, b);
+        b.remove();
+      });
+      return count;
+    }
+
+    // Phân tích văn bản thô (Plain text hoặc Markdown) thành các khối HTML chuẩn
+    function parsePlainText(txt, onFirstHeading) {
+      var lines = txt.replace(/\r\n/g, '\n').split('\n');
+      var html = [];
+      var listType = null;
+      var listItems = [];
+      var quoteLines = [];
+      var pBuffer = [];
+
+      var flushList = function () {
+        if (listItems.length && listType) {
+          html.push('<' + listType + '>' + listItems.map(function (li) { return '<li>' + li + '</li>'; }).join('') + '</' + listType + '>');
+          listItems = [];
+          listType = null;
+        }
+      };
+      var flushQuote = function () {
+        if (quoteLines.length) {
+          html.push('<blockquote>' + quoteLines.join('<br>') + '</blockquote>');
+          quoteLines = [];
+        }
+      };
+      var flushP = function () {
+        if (pBuffer.length) {
+          html.push('<p>' + pBuffer.map(inline).join('<br>') + '</p>');
+          pBuffer = [];
+        }
+      };
+
+      var inline = function (s) {
+        return s
+          .replace(/[&<>]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]; })
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|\/[^\s\)]+)\)/g, '<a href="$2">$1</a>');
+      };
+
+      var isFirstHeadingSeen = false;
+
+      for (var i = 0; i < lines.length; i++) {
+        var raw = lines[i];
+        var line = raw.trim();
+        if (!line) {
+          flushList(); flushQuote(); flushP();
+          continue;
+        }
+
+        // Khối trích dẫn
+        if (/^>\s*(.*)$/.test(line)) {
+          flushList(); flushP();
+          quoteLines.push(inline(line.replace(/^>\s*/, '')));
+          continue;
+        } else {
+          flushQuote();
+        }
+
+        // Danh sách gạch đầu dòng
+        if (/^[-*•+–]\s+(.+)$/.test(line)) {
+          flushP();
+          if (listType !== 'ul') { flushList(); listType = 'ul'; }
+          listItems.push(inline(line.replace(/^[-*•+–]\s+/, '')));
+          continue;
+        }
+
+        // Nhận diện Heading
+        var h = detectHeading(line, false);
+        if (h) {
+          flushList(); flushP();
+          if (!isFirstHeadingSeen && onFirstHeading && onFirstHeading(h.text)) {
+            isFirstHeadingSeen = true;
+            continue;
+          }
+          isFirstHeadingSeen = true;
+          html.push('<' + h.tag + '>' + inline(h.text) + '</' + h.tag + '>');
+          continue;
+        }
+
+        // Danh sách số (1. , 2. )
+        if (/^[0-9]+[\.\)]\s+(.+)$/.test(line)) {
+          flushP();
+          if (listType !== 'ol') { flushList(); listType = 'ol'; }
+          listItems.push(inline(line.replace(/^[0-9]+[\.\)]\s+/, '')));
+          continue;
+        }
+
+        flushList();
+        pBuffer.push(line);
+      }
+      flushList(); flushQuote(); flushP();
+      return html.join('');
+    }
+
+    // Xử lý thông minh khi dán nội dung (HTML từ Word/Docs hoặc Plain/Markdown)
+    function parseSmartContent(html, txt) {
+      var clean = '';
+      var detectedTitle = '';
+      var isEditorEmpty = !rte.textContent.trim();
+
+      // Nếu có HTML (từ Word, Docs, Web) và không phải là markdown thô
+      if (html && !/^#{1,3}\s+/.test((txt || '').trim())) {
+        var d = new DOMParser().parseFromString(html, 'text/html');
+        d.querySelectorAll('script,style,meta,link,title,xml').forEach(function (x) { x.remove(); });
+
+        // Nhận diện style heading từ Word / Docs trước khi xóa class
+        d.body.querySelectorAll('.MsoTitle, .MsoHeading1, [class*="heading-1"], [style*="mso-outline-level:1"]').forEach(function (x) {
+          var h2 = d.createElement('h2'); h2.innerHTML = x.innerHTML; x.replaceWith(h2);
+        });
+        d.body.querySelectorAll('.MsoHeading2, [class*="heading-2"], [style*="mso-outline-level:2"]').forEach(function (x) {
+          var h2 = d.createElement('h2'); h2.innerHTML = x.innerHTML; x.replaceWith(h2);
+        });
+        d.body.querySelectorAll('.MsoHeading3, .MsoHeading4, .MsoHeading5, [class*="heading-3"], [style*="mso-outline-level:3"]').forEach(function (x) {
+          var h3 = d.createElement('h3'); h3.innerHTML = x.innerHTML; x.replaceWith(h3);
+        });
+
+        // Xóa thuộc tính định dạng rác
+        d.body.querySelectorAll('*').forEach(function (x) {
+          ['style', 'class', 'id', 'dir', 'lang', 'face', 'size', 'color'].forEach(function (a) { x.removeAttribute(a); });
+        });
+        d.body.querySelectorAll('span,font').forEach(function (x) {
+          while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x);
+          x.remove();
+        });
+        d.body.querySelectorAll('div').forEach(function (x) {
+          if (x.querySelector('p,h1,h2,h3,h4,ul,ol,table,blockquote,div')) {
+            while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x);
+            x.remove();
+          } else {
+            var p = d.createElement('p');
+            while (x.firstChild) p.appendChild(x.firstChild);
+            x.replaceWith(p);
+          }
+        });
+
+        // Tự động phân chia Heading cho các đoạn văn trong DOM
+        autoFormatHeadings(d.body);
+
+        // Tự động điền Tiêu đề bài nếu đang để trống và editor trống
+        if (title && !title.value.trim() && isEditorEmpty) {
+          var firstHead = d.body.querySelector('h1, h2');
+          if (firstHead && firstHead === d.body.firstElementChild) {
+            detectedTitle = firstHead.textContent.trim();
+            firstHead.remove();
+          }
+        }
+
+        clean = d.body.innerHTML.replace(/<!--[\s\S]*?-->/g, '').trim();
+      }
+
+      // Nếu không có HTML hoặc kết quả HTML rỗng, phân tích plain text/markdown
+      if (!clean && txt) {
+        clean = parsePlainText(txt, function (firstTitle) {
+          if (title && !title.value.trim() && isEditorEmpty) {
+            detectedTitle = firstTitle;
+            return true;
+          }
+          return false;
+        });
+      }
+
+      // Tự động điền Title & slug nếu phát hiện
+      if (detectedTitle && title && !title.value.trim()) {
+        title.value = detectedTitle;
+        if (slug && !slug.readOnly && (!slug.value || !slugTouched)) {
+          slug.value = slugify(detectedTitle);
+        }
+      }
+
+      return clean;
+    }
+
     // Bấm vào ảnh để sửa mô tả
     rte.addEventListener('click', function (e) {
       if (e.target.tagName === 'IMG') { var a = prompt('Mô tả ảnh (alt):', e.target.getAttribute('alt') || ''); if (a !== null) { e.target.setAttribute('alt', a); sync(); scoreSoon(); } }
     });
-    // Dán nội dung: chỉ giữ chữ thuần để tránh định dạng rác từ Word/web
+
+    // Dán nội dung: Tự động phân chia tiêu đề H2, H3, danh sách và chuẩn hóa
     rte.addEventListener('paste', function (e) {
-      // Dán ảnh (ảnh chụp màn hình, ảnh sao chép): tải lên máy chủ rồi chèn vào bài
+      // Dán ảnh trực tiếp từ clipboard
       var imgs = Array.prototype.filter.call(e.clipboardData.files || [], function (f) { return /^image\/(png|jpeg|webp)$/.test(f.type); });
       if (imgs.length) {
         e.preventDefault();
@@ -316,29 +599,17 @@
         });
         return;
       }
+
       var html = e.clipboardData.getData('text/html'), txt = e.clipboardData.getData('text/plain');
       if (/<img[^>]+src=["']?data:/i.test(html)) alert('Ảnh trong nội dung vừa dán sẽ không được giữ lại. Hãy chèn ảnh bằng nút "Ảnh" hoặc dán riêng từng ảnh.');
-      var esc = function (t) { return t.replace(/[&<>]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]; }); };
+
       e.preventDefault();
-      var clean;
-      if (html) {
-        // Giữ cấu trúc (tiêu đề, danh sách, bảng, liên kết) nhưng bỏ cỡ chữ, màu, font… mang theo khi dán
-        var d = new DOMParser().parseFromString(html, 'text/html');
-        d.querySelectorAll('script,style,meta,link,title').forEach(function (x) { x.remove(); });
-        d.body.querySelectorAll('*').forEach(function (x) { ['style', 'class', 'id', 'dir', 'lang', 'face', 'size', 'color'].forEach(function (a) { x.removeAttribute(a); }); });
-        d.body.querySelectorAll('span,font').forEach(function (x) { while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x); x.remove(); });
-        d.body.querySelectorAll('div').forEach(function (x) {
-          if (x.querySelector('p,h1,h2,h3,h4,ul,ol,table,blockquote,div')) { while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x); x.remove(); }
-          else { var p = d.createElement('p'); while (x.firstChild) p.appendChild(x.firstChild); x.replaceWith(p); }
-        });
-        d.body.querySelectorAll('h2 b,h3 b,h2 strong,h3 strong,th b').forEach(function (x) { while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x); x.remove(); });
-        clean = d.body.innerHTML.replace(/<!--[\s\S]*?-->/g, '').trim();
-      } else {
-        clean = txt.split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
-      }
+      var clean = parseSmartContent(html, txt);
       if (!clean) return;
+
       insertClean(clean);
       sync(); scoreSoon();
+      showToast('✨ Đã tự động nhận diện và phân chia cấu trúc bài viết!');
     });
 
     // Chèn nội dung đã lọc: nội dung nhiều đoạn được đặt CẠNH khối hiện tại (không lọt vào trong tiêu đề)

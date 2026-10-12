@@ -54,11 +54,11 @@ function layout(string $title, string $body): void {
     }
     $who = $u ? '<span class="who">' . e($u['display_name']) . ' · ' . e(ROLES[$u['role']]) . '</span>' : '';
     echo '<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
-        . '<title>' . e($title) . ' · Quản trị Nha Khoa Trẻ</title><link rel="icon" href="/images/logo-nha-khoa-tre.png"><link rel="stylesheet" href="admin.css?v=12"></head><body>'
+        . '<title>' . e($title) . ' · Quản trị Nha Khoa Trẻ</title><link rel="icon" href="/images/logo-nha-khoa-tre.png"><link rel="stylesheet" href="admin.css?v=13"></head><body>'
         . '<header class="top"><a href="?p=home" class="brand"><img src="/images/logo-nha-khoa-tre.webp" alt="" height="36"> Quản trị</a>' . $who . '<a href="/" target="_blank" class="site">Xem website ↗</a></header>'
         . ($u ? '<nav class="side">' . $nav . '</nav>' : '')
         . '<main class="' . ($u ? 'with-side' : 'solo') . '">' . ($flash ? '<div class="flash">' . e($flash) . '</div>' : '') . '<h1>' . e($title) . '</h1>' . $body . '</main>'
-        . '<script src="admin.js?v=10"></script></body></html>';
+        . '<script src="admin.js?v=11"></script></body></html>';
 }
 
 // ---------- Đăng nhập ----------
@@ -316,9 +316,9 @@ if ($p === 'edit') {
         . '<label>Từ khóa chính<input name="focus_kw" id="f-kw" value="' . e($a['focus_kw']) . '" placeholder="vd: niềng răng cho trẻ 7 tuổi"' . $dis . '></label></div>'
         . '<label>Tóm tắt ngắn (hiện dưới tiêu đề và ở danh sách bài)<textarea name="excerpt" rows="2" maxlength="300"' . $dis . '>' . e($a['excerpt']) . '</textarea></label></div>'
         . '<div class="card"><div class="lbl">Nội dung bài viết</div>'
-        . ($readonly ? '' : '<div class="toolbar" role="toolbar"><button type="button" data-cmd="p">Đoạn</button><button type="button" data-cmd="h2">H2</button><button type="button" data-cmd="h3">H3</button><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="ul">• Danh sách</button><button type="button" data-cmd="ol">1. Danh sách</button><button type="button" data-cmd="quote">❝ Trích</button><button type="button" data-cmd="link">Liên kết</button><button type="button" data-cmd="unlink">Bỏ liên kết</button><button type="button" data-cmd="image">Ảnh</button></div>')
+        . ($readonly ? '' : '<div class="toolbar" role="toolbar"><button type="button" data-cmd="p">Đoạn</button><button type="button" data-cmd="h2">H2</button><button type="button" data-cmd="h3">H3</button><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="ul">• Danh sách</button><button type="button" data-cmd="ol">1. Danh sách</button><button type="button" data-cmd="quote">❝ Trích</button><button type="button" data-cmd="link">Liên kết</button><button type="button" data-cmd="unlink">Bỏ liên kết</button><button type="button" data-cmd="image">Ảnh</button><button type="button" data-cmd="auto-heading" class="btn-auto-heading" title="Tự động nhận diện và phân chia các tiêu đề H2, H3 theo nội dung">✨ Tự động H2/H3</button></div>')
         . '<div id="rte" class="rte" contenteditable="' . ($readonly ? 'false' : 'true') . '">' . $a['content'] . '</div><textarea name="content" id="f-content" hidden>' . e($a['content']) . '</textarea>'
-        . '<p class="hint">Mẹo: chia bài bằng tiêu đề H2 dạng câu hỏi, trả lời thẳng ở câu đầu. Bấm vào ảnh trong bài để sửa mô tả ảnh.</p></div>'
+        . '<p class="hint">✨ <b>Tự động khớp cấu trúc:</b> Dán toàn bộ bài viết vào đây (từ Word, Docs, ChatGPT...) hệ thống sẽ tự động phân chia H2, H3, danh sách và trích dẫn. Hoặc bấm "✨ Tự động H2/H3" để chuẩn hóa lại bài viết.</p></div>'
         . '<div class="card"><h2>SEO trên Google</h2><div class="gprev"><div class="g-url">chinhnhatreem.com › bai-viet › <span id="gp-slug">' . e($a['slug']) . '</span></div><div class="g-title" id="gp-title"></div><div class="g-desc" id="gp-desc"></div></div>'
         . '<label>Tiêu đề SEO <span class="count" data-for="f-seot" data-min="30" data-max="60"></span><input name="seo_title" id="f-seot" value="' . e($a['seo_title']) . '" placeholder="Để trống sẽ dùng: Tiêu đề bài | Nha Khoa Trẻ"' . $dis . '></label>'
         . '<label>Mô tả (meta description) <span class="count" data-for="f-desc" data-min="120" data-max="160"></span><textarea name="meta_desc" id="f-desc" rows="3"' . $dis . '>' . e($a['meta_desc']) . '</textarea></label></div>'
