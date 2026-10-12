@@ -2,44 +2,73 @@ HƯỚNG DẪN ĐƯA WEBSITE chinhnhatreem.com LÊN VPS
 ================================================
 Yêu cầu: VPS chạy Ubuntu 20.04/22.04/24.04 hoặc Debian 11/12, tên miền đã trỏ về IP của VPS.
 
-BƯỚC 1. Tải file lên VPS
-  - Cài WinSCP (Windows) hoặc Termius / FileZilla.
-  - Kết nối: Host = IP VPS, Port = 22, User = root, mật khẩu root.
-  - Kéo file chinhnhatreem-web.zip vào thư mục /root trên VPS.
+BƯỚC 1. Tải thư mục lên VPS
+  - Mở WinSCP. Host = IP VPS, Port = 22, User = root, mật khẩu root.
+  - Kéo nguyên thư mục chinhnhatreem-web sang thư mục /root trên VPS.
 
 BƯỚC 2. Chạy lệnh cài đặt
-  - Mở cửa sổ dòng lệnh: trong WinSCP bấm Ctrl+T (Open Terminal), hoặc dùng
-    VNC Console trong Cloudpanel, hoặc Termius.
+  - Trong WinSCP bấm Ctrl+T (Open Terminal), hoặc dùng VNC Console trong Cloudpanel.
   - Dán dòng lệnh sau rồi bấm Enter:
 
-    cd /root && apt-get install -y unzip && unzip -o chinhnhatreem-web.zip && bash chinhnhatreem-web/install.sh
+    bash /root/chinhnhatreem-web/install.sh
 
-  - Chờ khoảng 2–5 phút. Khi thấy chữ "XONG" là hoàn tất.
-  - Script tự: cài Nginx + PHP, chép web, lấy SSL miễn phí, chuyển hướng
-    http -> https và www -> không www, bật nén, cache, header bảo mật, tường lửa.
+  - Chờ 2–5 phút đến khi thấy chữ "XONG".
 
-BƯỚC 3. Kiểm tra
-  - Mở https://chinhnhatreem.com
-  - Trang xem lịch hẹn và câu hỏi bố mẹ gửi: https://chinhnhatreem.com/quan-ly/
-    Tài khoản: admin. Mật khẩu in ra ở cuối bước 2, và lưu trong file
-    /root/mat-khau-quan-ly.txt trên VPS.
-    Đổi mật khẩu: htpasswd /etc/nginx/.htpasswd-chinhnhatreem admin
+BƯỚC 3. Đăng nhập trang quản trị
+  - Mở https://chinhnhatreem.com/quan-tri/
+  - Tài khoản: admin. Mật khẩu tạm in ra ở cuối Bước 2, và lưu trong file
+    /root/mat-khau-quan-tri.txt trên VPS. Lần đầu đăng nhập sẽ phải đổi mật khẩu.
+
+TRANG QUẢN TRỊ CÓ GÌ
+  - Bảng điều khiển (trang đầu tiên sau khi đăng nhập): xem nhanh số bài đã đăng, bài chờ
+    duyệt, thống kê lead tháng này (so với tháng trước), số lead chưa liên hệ (cảnh báo đỏ để gọi ngay),
+    số ca đã chốt hẹn khám; biểu đồ lead theo từng tháng, bảng thống kê chi tiết theo tháng (lịch hẹn,
+    câu hỏi, tổng lead, tỷ lệ xử lý %); danh sách "Việc cần làm" (khách hàng chưa liên hệ, bài chờ duyệt,
+    bài bị trả lại, bài điểm thấp, bài sắp hết hạn thẩm định 12 tháng, nháp bỏ dở, trang thiếu SEO) kèm nút
+    xử lý ngay; danh sách lịch hẹn mới nhất kèm trạng thái; biểu đồ bài theo tháng, theo chuyên mục và theo bác sĩ.
+  - Bài viết: soạn bài có tiêu đề H2/H3, danh sách, trích dẫn, liên kết, chèn ảnh
+    (ảnh tự nén sang WebP). Mỗi bài có: từ khóa chính, tiêu đề SEO, mô tả, đường dẫn,
+    ảnh đại diện, bác sĩ tác giả, bác sĩ thẩm định.
+  - Hai điểm riêng: Điểm SEO (xếp hạng Google) và Điểm GEO (được AI trích dẫn), khoảng 50 tiêu chí chia 7 nhóm (Từ khóa, Tiêu đề & mô tả,
+    Nội dung & dễ đọc, Hình ảnh, Liên kết, Uy tín & an toàn y khoa, GEO – để AI trích dẫn đúng),
+    chấm ngay khi gõ. Nên đạt từ 80 điểm.
+  - Kiểm duyệt y khoa: bác sĩ thẩm định phải tick đủ 5 mục xác nhận (thông tin chính xác,
+    số liệu có nguồn, không hứa hẹn kết quả, ảnh bệnh nhân đã được đồng ý, có khuyến nghị
+    đi khám) thì mới đăng được. Ngày thẩm định hiện trên bài và trong Schema.
+  - Bài có từ 2 tiêu đề dạng câu hỏi sẽ tự có Schema hỏi đáp (FAQPage).
+  - Đăng bài: tự tạo trang /bai-viet/..., tự thêm Schema bài viết (tác giả, người thẩm
+    định), tự đưa vào danh sách bài, mục "Bài viết mới" ở trang chủ và sitemap.xml.
+  - Xóa bài: bấm "Xóa" ngay dưới tên bài trong danh sách (hoặc nút "Xóa bài" khi sửa bài).
+    Bài chuyển vào "Thùng rác", khôi phục được trong 30 ngày, sau đó tự xóa hẳn. Bài đã
+    đăng khi xóa sẽ tự gỡ khỏi web và đường dẫn cũ tự chuyển (301) về trang Kiến thức chỉnh
+    nha để không mất điểm SEO. Bác sĩ viết bài chỉ xóa được bài chưa đăng của mình.
+  - SEO từng trang: sửa tiêu đề, mô tả, ảnh chia sẻ Facebook/Zalo của 7 trang chính.
+  - Lịch hẹn & câu hỏi: theo dõi trạng thái liên hệ phụ huynh (Chưa liên hệ, Đã liên hệ, Đã đặt lịch hẹn,
+    Không nghe máy / Gọi lại, Hủy), cập nhật trạng thái nhanh tức thì; ghi chú lịch sử gọi điện / tư vấn của CSKH;
+    gọi điện nhanh và nhắn Zalo 1 chạm; lọc theo tháng, theo trạng thái, tìm kiếm tên/SĐT; tải file Excel (CSV)
+    đầy đủ lịch sử và trạng thái liên hệ.
+  - Báo qua Telegram: có lịch hẹn hoặc câu hỏi mới là bot nhắn ngay vào nhóm Telegram của
+    lễ tân (tên, số điện thoại, tuổi bé, vấn đề lo lắng, ghi chú). Cài 1 lần trong mục
+    "Báo qua Telegram": tạo bot với @BotFather, dán mã bot, thêm bot vào nhóm, gửi /start,
+    bấm "Tìm nhóm" và chọn. Nếu Telegram lỗi, lịch hẹn vẫn được lưu và Bảng điều khiển sẽ báo.
+  - Tài khoản: tạo tài khoản riêng cho từng bác sĩ.
+
+VAI TRÒ
+  - Bác sĩ viết bài: soạn bài, bấm "Gửi duyệt". Không tự đăng được.
+  - Bác sĩ thẩm định (vd BS. Hoàng): đọc bài chờ duyệt, bấm "Duyệt & đăng bài"
+    hoặc "Trả lại để sửa" kèm góp ý. Tên được ghi là người thẩm định trên bài.
+  - Quản trị: toàn quyền, sửa SEO trang, quản lý tài khoản, xem lịch hẹn.
 
 CẬP NHẬT WEB LẦN SAU
-  Tải file zip mới lên /root rồi chạy lại đúng dòng lệnh ở Bước 2.
-  Dữ liệu lịch hẹn, câu hỏi và mật khẩu trang quản lý được giữ nguyên.
+  Tải thư mục mới lên /root (ghi đè) rồi chạy lại: bash /root/chinhnhatreem-web/install.sh
+  Bài viết, ảnh, tài khoản, lịch hẹn đều được giữ nguyên.
+
+SAO LƯU (nên làm hằng tuần)
+  Tải về máy 2 thư mục: /var/www/chinhnhatreem-data  (bài viết, tài khoản, lịch hẹn)
+                        /var/www/chinhnhatreem.com/public/_gen/uploads  (ảnh tải lên)
 
 SAU KHI CÀI XONG NÊN LÀM
   1. Đổi mật khẩu root trong Cloudpanel (mật khẩu cũ đã gửi qua tin nhắn).
-  2. Khai báo website với Google Search Console, gửi sitemap:
-     https://chinhnhatreem.com/sitemap.xml
+  2. Google Search Console: thêm website, gửi sitemap https://chinhnhatreem.com/sitemap.xml
   3. Kiểm tra Schema: https://search.google.com/test/rich-results
   4. Kiểm tra tốc độ: https://pagespeed.web.dev
-
-CẤU TRÚC THƯ MỤC
-  public/               toàn bộ website (HTML, ảnh, robots.txt, sitemap.xml, llms.txt)
-  public/api/           xử lý form đặt lịch và gửi câu hỏi (PHP)
-  public/quan-ly/       trang xem dữ liệu, có mật khẩu
-  install.sh            script cài đặt / cập nhật
-  nginx-site.conf       cấu hình Nginx
-  Dữ liệu form lưu tại /var/www/chinhnhatreem-data/ (ngoài thư mục web).

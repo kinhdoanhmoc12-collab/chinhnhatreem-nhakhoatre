@@ -8,7 +8,6 @@ DOMAIN="chinhnhatreem.com"
 EMAIL="${CERT_EMAIL:-cskh.nhakhoatre@gmail.com}"    # email nhận thông báo gia hạn SSL
 WEBROOT="/var/www/${DOMAIN}"
 DATA="/var/www/chinhnhatreem-data"
-HTPASS="/etc/nginx/.htpasswd-chinhnhatreem"
 CONF="/etc/nginx/sites-available/${DOMAIN}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -17,37 +16,42 @@ vang(){ printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Cần chạy bằng tài khoản root."; exit 1; }
 command -v apt-get >/dev/null || { echo "Script này dành cho Ubuntu/Debian. Hệ điều hành hiện tại chưa hỗ trợ."; exit 1; }
+# VPS đang cài CloudPanel: thông báo và tiếp tục cập nhật
+if command -v clpctl >/dev/null 2>&1 || [ -d /home/clp ]; then
+  vang "Phát hiện VPS có CloudPanel: tiếp tục cài đặt/cập nhật website chinhnhatreem.com..."
+fi
 [ -f "$HERE/public/index.html" ] || { echo "Không thấy thư mục public/ cạnh install.sh. Hãy giải nén đủ file zip."; exit 1; }
 
 xanh "1/7 Cài phần mềm (Nginx, PHP, Certbot)"
 export DEBIAN_FRONTEND=noninteractive
-mkdir -p /etc/nginx/conf.d
-echo "server_names_hash_bucket_size 128;" > /etc/nginx/conf.d/server_names_hash.conf
 apt-get update -y
-apt-get install -y nginx php-fpm php-mbstring certbot apache2-utils ufw curl dnsutils rsync
+apt-get install -y nginx php-fpm php-mbstring php-sqlite3 php-gd php-xml php-intl php-curl certbot ufw curl dnsutils rsync
 systemctl disable --now apache2 >/dev/null 2>&1 || true   # tránh tranh cổng 80 với Nginx
 PHPSOCK="$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1 || true)"
 if [ -z "$PHPSOCK" ]; then
   systemctl restart "$(systemctl list-unit-files | awk '/php.*-fpm.service/{print $1; exit}')" || true
-  sleep 2; PHPSOCK="$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1 || true)"
+  sleep 2; PHPSOCK="$(ls /run/php/php*-fpm.sock | head -1)"
 fi
-[ -n "$PHPSOCK" ] || { echo "Không tìm thấy socket PHP-FPM. Kiểm tra service php-fpm."; exit 1; }
 echo "PHP-FPM: $PHPSOCK"
 
 xanh "2/7 Chép website vào $WEBROOT"
 mkdir -p "$WEBROOT" "$DATA"
-rsync -a --delete "$HERE/public/" "$WEBROOT/public/"
-chown -R root:root "$WEBROOT"; find "$WEBROOT" -type d -exec chmod 755 {} +; find "$WEBROOT" -type f -exec chmod 644 {} +
+rsync -a --delete --exclude '/_gen/' "$HERE/public/" "$WEBROOT/public/"
+rsync -a --delete "$HERE/app/" "$WEBROOT/app/"
+chown -R root:root "$WEBROOT/public" "$WEBROOT/app"
+find "$WEBROOT/public" "$WEBROOT/app" -path "$WEBROOT/public/_gen" -prune -o -type d -exec chmod 755 {} + -o -type f -exec chmod 644 {} +
+# Thư mục trang quản trị được phép ghi: trang xuất ra và ảnh tải lên
+mkdir -p "$WEBROOT/public/_gen/bai-viet" "$WEBROOT/public/_gen/uploads"
+chown -R www-data:www-data "$WEBROOT/public/_gen"
 chown www-data:www-data "$DATA"; chmod 750 "$DATA"
 
-xanh "3/7 Mật khẩu trang quản lý lịch hẹn (/quan-ly)"
-if [ ! -f "$HTPASS" ]; then
-  PASS="$(head -c 64 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 14)"
-  htpasswd -bc "$HTPASS" admin "$PASS" >/dev/null
-  chown root:www-data "$HTPASS"; chmod 640 "$HTPASS"
-  echo "$PASS" > /root/mat-khau-quan-ly.txt; chmod 600 /root/mat-khau-quan-ly.txt
+xanh "3/7 Tài khoản quản trị (/quan-tri)"
+rm -f /etc/nginx/.htpasswd-chinhnhatreem
+PASS="$(runuser -u www-data -- php "$WEBROOT/app/cli.php" create-admin admin)"
+if [ "$PASS" = "EXISTS" ]; then
+  PASS="(giữ nguyên mật khẩu cũ, xem /root/mat-khau-quan-tri.txt)"
 else
-  PASS="(giữ nguyên mật khẩu cũ, xem /root/mat-khau-quan-ly.txt)"
+  echo "Tài khoản: admin / Mật khẩu: $PASS" > /root/mat-khau-quan-tri.txt; chmod 600 /root/mat-khau-quan-tri.txt
 fi
 
 xanh "4/7 Kiểm tra tên miền đã trỏ về VPS chưa"
@@ -80,10 +84,11 @@ chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 
 xanh "6/7 Cấu hình Nginx (HTTPS, chuyển hướng 301, nén, cache, bảo mật)"
 cat > /etc/nginx/conf.d/chinhnhatreem-zones.conf <<'NGX'
-limit_req_zone $binary_remote_addr zone=nkt_forms:10m rate=6r/m;
+limit_req_zone $binary_remote_addr zone=nkt_forms:10m rate=20r/m;
+limit_req_zone $binary_remote_addr zone=nkt_admin:10m rate=1200r/m;
 NGX
 sed -e "s#__DOMAIN__#$DOMAIN#g" -e "s#__ROOT__#$WEBROOT/public#g" \
-    -e "s#__PHPSOCK__#$PHPSOCK#g" -e "s#__HTPASS__#$HTPASS#g" \
+    -e "s#__PHPSOCK__#$PHPSOCK#g" \
     "$HERE/nginx-site.conf" > "$CONF"
 # VPS không bật IPv6 thì bỏ các dòng listen [::]
 if [ ! -s /proc/net/if_inet6 ]; then sed -i 's/ listen \[::\]:[0-9]*[^;]*;//' "$CONF"; fi
@@ -92,6 +97,8 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl enable --now nginx >/dev/null 2>&1 || true
 systemctl reload nginx
+# Xuất lại các trang bài viết / SEO theo mẫu mới nhất
+runuser -u www-data -- php "$WEBROOT/app/cli.php" publish >/dev/null
 
 xanh "7/7 Tường lửa (chỉ mở SSH, HTTP, HTTPS)"
 ufw allow OpenSSH >/dev/null; ufw allow 22/tcp >/dev/null; ufw allow 'Nginx Full' >/dev/null
@@ -100,6 +107,7 @@ ufw status | head -8
 
 xanh "XONG"
 echo "Website:            https://$DOMAIN"
-echo "Trang quản lý:      https://$DOMAIN/quan-ly/   (tài khoản: admin, mật khẩu: $PASS)"
+echo "Trang quản trị:     https://$DOMAIN/quan-tri/   (tài khoản: admin, mật khẩu tạm: $PASS)"
+echo "                    Lần đầu đăng nhập sẽ được yêu cầu đổi mật khẩu."
 echo "Dữ liệu lịch hẹn:   $DATA"
 echo "SSL tự gia hạn mỗi 90 ngày (certbot.timer)."

@@ -1,6 +1,7 @@
 User-agent: *
 Disallow: /admin/
 Disallow: /api/
+Disallow: /quan-tri/
 Disallow: /quan-ly/
 Disallow: /tim-kiem
 Disallow: /*?s=

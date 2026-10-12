@@ -3,7 +3,9 @@ date_default_timezone_set('Asia/Ho_Chi_Minh');
 require __DIR__ . '/_luu.php';
 $ten = lam_sach($_POST['ten'] ?? '', 80);
 $sdt = lam_sach($_POST['sdt'] ?? '', 15);
-if ($ten === '' || !preg_match('/^[0-9 .+]{9,15}$/', $sdt) || empty($_POST['dong_y'])) tra_ve(false, 422);
+if ($ten === '') tra_ve(false, 422, 'Vui lòng điền họ tên phụ huynh.');
+if (!preg_match('/^[0-9 .+]{9,15}$/', $sdt)) tra_ve(false, 422, 'Vui lòng nhập đúng số điện thoại (từ 9 - 11 chữ số).');
+if (empty($_POST['dong_y'])) tra_ve(false, 422, 'Vui lòng tích vào ô đồng ý chính sách bảo mật trước khi gửi.');
 luu('dat-lich.csv', [
     'Họ tên phụ huynh' => $ten,
     'Số điện thoại / Zalo' => $sdt,
